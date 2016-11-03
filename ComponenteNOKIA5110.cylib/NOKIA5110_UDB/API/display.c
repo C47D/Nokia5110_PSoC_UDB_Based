@@ -148,7 +148,7 @@ void `$INSTANCE_NAME`_Chr(char ch, DRAW_TYPE_t dtype, FONT_TYPE_t ft){
         }
         `$INSTANCE_NAME`_SendData(Background[Background_cursor]); // empty space after character 
     break;
-    default:// Default Middle font
+    case Middle_Font: default:// Default Middle font
         if(dtype == DRAW_OR){  
             for(i = 0; i < 5; i++, Background_cursor++){
                 `$INSTANCE_NAME`_SendData(MiddleFont[ch-32][i] | Background[Background_cursor]);
@@ -177,7 +177,7 @@ void `$INSTANCE_NAME`_Chr(char ch, FONT_TYPE_t ft){
         }
         `$INSTANCE_NAME`_SendData(0x00);
     break;
-    default: // Default Middle font
+    case Middle_Font: default: // Default Middle font
         for(i = 0; i < 5; i++){
             `$INSTANCE_NAME`_SendData(MiddleFont[ch - 32][i]);// empty space after character
         }
@@ -196,11 +196,12 @@ void `$INSTANCE_NAME`_Chr(char ch, FONT_TYPE_t ft){
 * Return value : None.
 ***************************************************************************/
 #ifdef DRAW_OVER_BACKGROUND
-void `$INSTANCE_NAME`_Str(char* dataPtr, DRAW_TYPE_t dtype, FONT_TYPE_t ft){
+void `$INSTANCE_NAME`_Str(const char* dataPtr, DRAW_TYPE_t dtype, FONT_TYPE_t ft){
     uint16_t i;
+    char ch;
 
     while(*dataPtr){
-        char ch = *dataPtr++; 
+        ch = *dataPtr++; 
         switch(ft){
         case Small_Font: // Small font
             if (dtype == DRAW_OR){
@@ -218,7 +219,7 @@ void `$INSTANCE_NAME`_Str(char* dataPtr, DRAW_TYPE_t dtype, FONT_TYPE_t ft){
             }
             `$INSTANCE_NAME`_SendData(Background[Background_cursor++]);
         break;
-        default: //Default font Middle
+        case Middle_Font: default: //Default font Middle
             if(dtype == DRAW_OR){
                 for(i = 0; i < 5; i++, Background_cursor++){
                     `$INSTANCE_NAME`_SendData(MiddleFont[ch-32][i] | Background[Background_cursor]);
@@ -238,20 +239,21 @@ void `$INSTANCE_NAME`_Str(char* dataPtr, DRAW_TYPE_t dtype, FONT_TYPE_t ft){
     }
 }
 #else //DRAW_OVER_BACKGROUND
-void `$INSTANCE_NAME`_Str(char* dataPtr, FONT_TYPE_t ftype){
+void `$INSTANCE_NAME`_Str(const char* dataPtr, FONT_TYPE_t ftype){
     uint16_t i;
+    char ch;
 
     while(*dataPtr){
-        char ch = *dataPtr++; 
+        ch = *dataPtr++; 
         switch(ftype){
         case Small_Font: // Small font
-            char ch = *dataPtr++; 
-            for(i = 0; i < 5; i++){
+            ch = *dataPtr++; 
+            for(i = 0; i < 3; i++){
                 `$INSTANCE_NAME`_SendData(FontLookup[ch - 32][i]);
             }
             `$INSTANCE_NAME`_SendData(0x00); // empty space after character
-        default: // Default Middle font
-            char ch = *dataPtr++; 
+        case Middle_Font: default: // Default Middle font
+            ch = *dataPtr++; 
             for(i = 0; i < 5; i++){
                 `$INSTANCE_NAME`_SendData(FontLookup[ch - 32][i]);
             }
@@ -322,7 +324,7 @@ void `$INSTANCE_NAME`_BigStr(char* dataPtr, DRAW_TYPE_t dtype){
     }
 }
 #else //DRAW_OVER_BACKGROUND
-void `$INSTANCE_NAME`_BigStr(uint8_t x, uint8_t y, char* dataPtr){
+void `$INSTANCE_NAME`_BigStr(uint8_t x, uint8_t y, const char* dataPtr){
     char *dataPtrVar, ch;
     uint16_t i;
 
@@ -332,7 +334,7 @@ void `$INSTANCE_NAME`_BigStr(uint8_t x, uint8_t y, char* dataPtr){
     while(*dataPtrVar){
         ch = *dataPtrVar++; 
         for(i = 0; i < 8; i++){
-            `$INSTANCE_NAME`_SendData(BigFontLookup[ch - 32][i][0]);
+            `$INSTANCE_NAME`_SendData(BigFont[ch - 32][i][0]);
         }
         `$INSTANCE_NAME`_SendData(0x00);
     }
@@ -342,7 +344,7 @@ void `$INSTANCE_NAME`_BigStr(uint8_t x, uint8_t y, char* dataPtr){
     while(*dataPtrVar){        
         ch = *dataPtrVar++; 
         for(i = 0; i < 8; i++){
-            `$INSTANCE_NAME`_SendData(BigFontLookup[ch - 32][i][1]);
+            `$INSTANCE_NAME`_SendData(BigFont[ch - 32][i][1]);
         }
         `$INSTANCE_NAME`_SendData(0x00);
     }
@@ -832,9 +834,9 @@ void `$INSTANCE_NAME`_Line(uint8_t xb, uint8_t yb, uint8_t xe, uint8_t ye)
 //--------------------------------------------------------------------------------------------------*/
 void `$INSTANCE_NAME`_SendData(uint8_t data){
     `$INSTANCE_NAME`_Control_Write(SET_RST_SET_DC);
-    while(!(`$INSTANCE_NAME`_SPI_ReadTxStatus() & `$INSTANCE_NAME`_SPI_STS_SPI_IDLE));
+    while(!(`$INSTANCE_NAME`_SPI_TX_STATUS_REG & `$INSTANCE_NAME`_SPI_STS_SPI_IDLE));
     `$INSTANCE_NAME`_SPI_WriteTxData(data); // Send data to display controller.
-    while (!(`$INSTANCE_NAME`_SPI_ReadTxStatus() & `$INSTANCE_NAME`_SPI_STS_SPI_IDLE)); // Wait until SPI cycle complete.
+    while (!(`$INSTANCE_NAME`_SPI_TX_STATUS_REG & `$INSTANCE_NAME`_SPI_STS_SPI_IDLE)); // Wait until SPI cycle complete.
 }
 
 /*--------------------------------------------------------------------------------------------------
@@ -845,9 +847,9 @@ void `$INSTANCE_NAME`_SendData(uint8_t data){
 //--------------------------------------------------------------------------------------------------*/
 void `$INSTANCE_NAME`_SendCommand(uint8_t command){
     `$INSTANCE_NAME`_Control_Write(SET_RST_CLEAR_DC);
-    while(!(`$INSTANCE_NAME`_SPI_ReadTxStatus() & `$INSTANCE_NAME`_SPI_STS_SPI_IDLE));
+    while(!(`$INSTANCE_NAME`_SPI_TX_STATUS_REG & `$INSTANCE_NAME`_SPI_STS_SPI_IDLE));
     `$INSTANCE_NAME`_SPI_WriteTxData(command); // Send command to display controller.
-    while(!(`$INSTANCE_NAME`_SPI_ReadTxStatus() & `$INSTANCE_NAME`_SPI_STS_SPI_IDLE)); // Wait until SPI cycle complete.
+    while(!(`$INSTANCE_NAME`_SPI_TX_STATUS_REG & `$INSTANCE_NAME`_SPI_STS_SPI_IDLE)); // Wait until SPI cycle complete.
 }
 
 /* END OF FILE */
